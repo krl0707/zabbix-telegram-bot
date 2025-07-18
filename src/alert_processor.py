@@ -1,47 +1,57 @@
-import json
-import logging
-from datetime import datetime
+import re
+from loguru import logger
+from src.models.alert import AlertData
+from src.models.config import AppConfig
+from src.commands.utils import send_telegram_message
 
-def process_alert(subject, message, config, zabbix_api, db):
+def parse_alert_message(message: str) -> AlertData:
+    """Парсинг сообщения от Zabbix с использованием регулярных выражений"""
+    try:
+        # Пример парсинга (реализация зависит от формата сообщения)
+        host_match = re.search(r"Host:\s*(.+)", message)
+        trigger_match = re.search(r"Trigger:\s*(.+)", message)
+        trigger_id_match = re.search(r"Trigger ID:\s*(\d+)", message)
+        host_id_match = re.search(r"Host ID:\s*(\d+)", message)
+        
+        tags = {}
+        tag_matches = re.findall(r"Tag:\s*(\w+)=([\w-]+)", message)
+        for key, value in tag_matches:
+            tags[key] = value
+        
+        return AlertData(
+            host=host_match.group(1) if host_match else "Unknown",
+            trigger=trigger_match.group(1) if trigger_match else "Unknown",
+            trigger_id=trigger_id_match.group(1) if trigger_id_match else None,
+            host_id=host_id_match.group(1) if host_id_match else None,
+            tags=tags,
+            valid=bool(trigger_id_match and host_id_match)
+        )
+    except Exception as e:
+        logger.error(f"Alert parsing error: {str(e)}")
+        return AlertData(valid=False)
+
+def process_alert(subject: str, message: str, config: AppConfig) -> None:
     """Обработка входящего алерта от Zabbix"""
     try:
-        # Парсинг данных из алерта (реализация зависит от формата сообщения Zabbix)
-        # Пример простой реализации:
-        trigger_id = extract_value(message, "TRIGGER_ID")
-        host_id = extract_value(message, "HOST_ID")
-        tags = extract_tags(message)  # {"tag1": "value1", "tag2": "value2"}
+        # Парсинг алерта
+        alert_data = parse_alert_message(message)
         
         # Форматирование сообщения для Telegram
-        formatted_msg = f"*{subject}*\n━━━━━━━━━━━━━━\n{message}\n"
-        formatted_msg += f"Trigger ID: `{trigger_id}`\n"
-        formatted_msg += "Команды:\n/graph - графики\n/history_tags - история\n/mute - отключить уведомления"
+        alert_text = f"*{subject}*\n\n"
+        alert_text += f"Host: {alert_data.host}\n"
+        alert_text += f"Trigger: {alert_data.trigger}\n"
         
-        # Отправка в Telegram
-        send_telegram_message(config, formatted_msg)
+        if alert_data.trigger_id:
+            alert_text += f"Trigger ID: `{alert_data.trigger_id}`\n"
         
-        # Сохраняем алерт в БД для последующих команд
-        db.add_alert(config['chat_id'], trigger_id, host_id, tags)
+        if alert_data.tags:
+            tags_str = ", ".join([f"{k}={v}" for k, v in alert_data.tags.items()])
+            alert_text += f"Tags: {tags_str}\n"
+        
+        alert_text += "\nКоманды:\n/mute - отключить уведомления"
+        
+        # Отправка сообщения
+        send_telegram_message(config, alert_text)
         
     except Exception as e:
-        logging.error(f"Alert processing failed: {str(e)}")
-
-def extract_value(message, key):
-    """Извлечение значения из сообщения Zabbix"""
-    # Реализация парсинга в зависимости от формата сообщения
-    return "12345"  # Заглушка
-
-def send_telegram_message(config, text):
-    """Отправка сообщения через Telegram API"""
-    import requests
-    url = f"https://api.telegram.org/bot{config['bot_token']}/sendMessage"
-    payload = {
-        "chat_id": config['chat_id'],
-        "text": text,
-        "parse_mode": "Markdown"
-    }
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-    except Exception as e:
-        logging.error(f"Telegram send error: {str(e)}")
-        
+        logger.error(f"Alert processing failed: {str(e)}")

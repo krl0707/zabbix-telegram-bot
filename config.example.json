@@ -1,13 +1,18 @@
 {
-    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
-    "chat_id": "YOUR_CHAT_ID",
-    "zabbix_api_url": "https://your-zabbix-server/zabbix/api_jsonrpc.php",
-    "zabbix_api_user": "api-user",
-    "zabbix_api_password": "secure-password",
-    "zabbix_maintenance_groupid": "15",
-    "default_mute_hours": 24,
-    "graph_hours": 24,
-    "max_history_items": 10,
-    "db_path": "zabbix_bot.db",
-    "log_path": "/var/log/zabbix/telegram_bot.log"
-}
+    "telegram": {
+      "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+      "chat_id": "YOUR_CHAT_ID"
+    },
+    "zabbix": {
+      "api_url": "https://your-zabbix-server/zabbix/api_jsonrpc.php",
+      "user": "API_USER"
+    },
+    "maintenance": {
+      "group_id": 15,
+      "default_hours": 24
+    },
+    "logging": {
+      "level": "INFO",
+      "file_path": "/var/log/zabbix/zabbix_bot.log"
+    }
+  }

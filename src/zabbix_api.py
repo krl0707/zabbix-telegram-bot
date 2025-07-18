@@ -1,54 +1,62 @@
-
 import requests
-import json
-import time
 import logging
+from loguru import logger
+from typing import List, Dict, Any
+from src.models.config import AppConfig
+
+class ZabbixAPIError(Exception):
+    """Кастомное исключение для ошибок Zabbix API"""
 
 class ZabbixAPI:
-    def __init__(self, url, user, password, maintenance_groupid):
-        self.url = url
-        self.maintenance_groupid = maintenance_groupid
-        self.auth_token = self.authenticate(user, password)
+    def __init__(self, config: AppConfig):
+        self.api_url = config.zabbix.api_url
+        self.user = config.zabbix.user
+        self.password = os.getenv("ZABBIX_PASSWORD")
         
-    def authenticate(self, user, password):
+        if not self.password:
+            raise ValueError("ZABBIX_PASSWORD environment variable is not set")
+        
+        self.auth_token = self.authenticate()
+        
+    def authenticate(self) -> str:
+        """Аутентификация в Zabbix API"""
         payload = {
             "jsonrpc": "2.0",
             "method": "user.login",
-            "params": {"user": user, "password": password},
+            "params": {
+                "user": self.user,
+                "password": self.password
+            },
             "id": 1
         }
+        
         response = self._request(payload)
-        return response['result'] if response and 'result' in response else None
+        return response["result"]
     
-    def _request(self, payload):
+    def _request(self, payload: Dict) -> Dict:
+        """Базовый метод для запросов к API"""
         try:
             response = requests.post(
-                self.url,
+                self.api_url,
                 json=payload,
-                headers={'Content-Type': 'application/json-rpc'},
+                headers={"Content-Type": "application/json-rpc"},
                 timeout=10
             )
             response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logging.error(f"Zabbix API error: {str(e)}")
-            return None
+            json_response = response.json()
+            
+            if "error" in json_response:
+                error_msg = json_response["error"]["data"]
+                logger.error(f"Zabbix API error: {error_msg}")
+                raise ZabbixAPIError(error_msg)
+                
+            return json_response
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error: {str(e)}")
+            raise ZabbixAPIError("Network error") from e
     
-    def get_trigger_items(self, triggerid):
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "trigger.get",
-            "params": {
-                "triggerids": triggerid,
-                "selectItems": "extend"
-            },
-            "auth": self.auth_token,
-            "id": 2
-        }
-        response = self._request(payload)
-        return response['result'][0]['items'] if response and 'result' in response else []
-    
-    def create_maintenance(self, hostids, tags, hours):
+    def create_maintenance(self, host_ids: List[str], hours: int, tags: Dict[str, str]) -> str:
+        """Создание периода обслуживания"""
         current_time = int(time.time())
         tag_list = [{"tag": k, "value": v} for k, v in tags.items()]
         
@@ -59,24 +67,14 @@ class ZabbixAPI:
                 "name": f"Telegram Mute: {tags}",
                 "active_since": current_time,
                 "active_till": current_time + hours * 3600,
-                "groups": [{"groupid": self.maintenance_groupid}],
-                "timeperiods": [{"timeperiod_type": 0, "period": hours * 3600}],
-                "tags": tag_list,
-                "hostids": hostids
+                "hostids": host_ids,
+                "tags": tag_list
             },
             "auth": self.auth_token,
-            "id": 3
+            "id": 2
         }
+        
         response = self._request(payload)
-        return response['result']['maintenanceids'][0] if response and 'result' in response else None
+        return response["result"]["maintenanceids"][0]
     
-    def delete_maintenance(self, maintenance_id):
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "maintenance.delete",
-            "params": [maintenance_id],
-            "auth": self.auth_token,
-            "id": 4
-        }
-        return self._request(payload)
-    
+    # Другие методы API...

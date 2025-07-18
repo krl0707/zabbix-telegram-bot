@@ -1,22 +1,26 @@
-# Zabbix Telegram Bot
+# Zabbix Telegram Bot (Secure & Refactored)
 
-Расширенный Telegram-бот для интеграции с Zabbix, предоставляющий:
-- Получение и обработка алертов
-- Построение графиков исторических данных
-- Анализ истории срабатываний триггеров
-- Управление уведомлениями (временное отключение)
+Улучшенная версия Telegram бота для интеграции с Zabbix с исправлением проблем безопасности и архитектуры.
 
-## Основные команды
-- `/graph [triggerid]` - графики данных за 24 часа
-- `/history_tags` - история срабатываний с теми же тегами
-- `/mute [hours]` - отключить уведомления (по умолчанию 24 часа)
-- `/unmute` - включить уведомления досрочно
-- `/mute_status` - показать активные отключения
+## Основные функции
+- Получение и обработка алертов из Zabbix
+- Команды:
+  - `/mute [hours]` - временное отключение уведомлений
+  - `/graph [triggerid]` - графики исторических данных (в разработке)
+  - `/history_tags` - история срабатываний по тегам (в разработке)
 
 ## Установка
 ```bash
+# 1. Клонировать репозиторий
+git clone https://github.com/yourusername/zabbix-telegram-bot.git
+cd zabbix-telegram-bot
+
+# 2. Установить зависимости
 pip install -r requirements.txt
-sqlite3 zabbix_bot.db < scripts/db_init.sql
-# Заполните config.json на основе config.example.json
-python src/zabbix_bot.py
-```
+
+# 3. Создать конфигурационный файл
+cp config.example.json config.json
+
+# 4. Заполнить конфигурацию (см. SETUP.md)
+# 5. Запустить бота
+python -m src.main
