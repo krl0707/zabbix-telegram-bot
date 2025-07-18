@@ -1,0 +1,17 @@
+# Конфигурация
+config.json
+*.env
+
+# Базы данных
+*.db
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Среда разработки
+.venv/
+.vscode/

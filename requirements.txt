@@ -1,0 +1,6 @@
+python-telegram-bot==20.3
+requests==2.31.0
+matplotlib==3.7.1
+pandas==2.0.3
+sqlalchemy==2.0.19
+python-dotenv==1.0.0
